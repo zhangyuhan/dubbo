@@ -20,7 +20,6 @@ package org.apache.dubbo.config;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.config.api.DemoService;
 import org.apache.dubbo.config.api.Greeting;
-import org.apache.dubbo.config.context.ConfigManager;
 import org.apache.dubbo.config.mock.MockProtocol2;
 import org.apache.dubbo.config.mock.MockRegistryFactory2;
 import org.apache.dubbo.config.mock.TestProxyFactory;
@@ -43,19 +42,21 @@ import java.util.concurrent.TimeUnit;
 
 import static org.apache.dubbo.common.constants.CommonConstants.ANYHOST_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.APPLICATION_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.GENERIC_SERIALIZATION_BEAN;
+import static org.apache.dubbo.common.constants.CommonConstants.GENERIC_SERIALIZATION_DEFAULT;
+import static org.apache.dubbo.common.constants.CommonConstants.GENERIC_SERIALIZATION_NATIVE_JAVA;
 import static org.apache.dubbo.common.constants.CommonConstants.INTERFACE_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.METHODS_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.PROVIDER;
-import static org.apache.dubbo.common.constants.CommonConstants.SIDE_KEY;
-import static org.apache.dubbo.rpc.cluster.Constants.EXPORT_KEY;
-import static org.apache.dubbo.config.Constants.SHUTDOWN_TIMEOUT_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.SHUTDOWN_WAIT_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.SIDE_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.VERSION_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.GROUP_KEY;
+import static org.apache.dubbo.config.Constants.SHUTDOWN_TIMEOUT_KEY;
 import static org.apache.dubbo.remoting.Constants.BIND_IP_KEY;
 import static org.apache.dubbo.remoting.Constants.BIND_PORT_KEY;
 import static org.apache.dubbo.rpc.Constants.GENERIC_KEY;
-import static org.apache.dubbo.rpc.Constants.GENERIC_SERIALIZATION_BEAN;
-import static org.apache.dubbo.rpc.Constants.GENERIC_SERIALIZATION_DEFAULT;
-import static org.apache.dubbo.rpc.Constants.GENERIC_SERIALIZATION_NATIVE_JAVA;
+import static org.apache.dubbo.rpc.cluster.Constants.EXPORT_KEY;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
@@ -125,12 +126,12 @@ public class ServiceConfigTest {
         delayService.setMethods(Collections.singletonList(method));
         delayService.setDelay(100);
 
-        ConfigManager.getInstance().clear();
+//        ApplicationModel.getConfigManager().clear();
     }
 
     @AfterEach
     public void tearDown() {
-        ConfigManager.getInstance().clear();
+//        ApplicationModel.getConfigManager().clear();
     }
 
     @Test
@@ -156,11 +157,29 @@ public class ServiceConfigTest {
     }
 
     @Test
+    public void testVersionAndGroupConfigFromProvider() {
+        //Service no configuration version , the Provider configured.
+        service.getProvider().setVersion("1.0.0");
+        service.getProvider().setGroup("groupA");
+        service.export();
+
+        String serviceVersion = service.getVersion();
+        String serviceVersion2 = service.toUrl().getParameter(VERSION_KEY);
+
+        String group = service.getGroup();
+        String group2 = service.toUrl().getParameter(GROUP_KEY);
+
+        assertEquals(serviceVersion2, serviceVersion);
+        assertEquals(group, group2);
+    }
+
+    @Test
     public void testProxy() throws Exception {
         service2.export();
 
         assertThat(service2.getExportedUrls(), hasSize(1));
         assertEquals(2, TestProxyFactory.count); // local injvm and registry protocol, so expected is 2
+        TestProxyFactory.count = 0;
     }
 
 
@@ -240,19 +259,26 @@ public class ServiceConfigTest {
         });
     }
 
-    @Test
-    public void testMock() throws Exception {
-        Assertions.assertThrows(IllegalArgumentException.class, () -> {
-            ServiceConfig service = new ServiceConfig();
-            service.setMock("true");
-        });
-    }
+//    @Test
+//    public void testMock() throws Exception {
+//        Assertions.assertThrows(IllegalArgumentException.class, () -> {
+//            ServiceConfig service = new ServiceConfig();
+//            service.setMock("true");
+//        });
+//    }
+//
+//    @Test
+//    public void testMock2() throws Exception {
+//        Assertions.assertThrows(IllegalArgumentException.class, () -> {
+//            ServiceConfig service = new ServiceConfig();
+//            service.setMock(true);
+//        });
+//    }
 
     @Test
-    public void testMock2() throws Exception {
-        Assertions.assertThrows(IllegalArgumentException.class, () -> {
-            ServiceConfig service = new ServiceConfig();
-            service.setMock(true);
-        });
+    public void testApplicationInUrl() {
+        service.export();
+        Assertions.assertNotNull(service.toUrl().getParameter(APPLICATION_KEY));
+        Assertions.assertEquals("app", service.toUrl().getParameter(APPLICATION_KEY));
     }
 }
